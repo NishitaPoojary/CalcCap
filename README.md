@@ -64,6 +64,11 @@ Do not use it for important calculations.
 
 ---
 
+## 🚀 Live Demo
+
+Try CalcCap here:  
+https://nishitapoojary.github.io/CalcCap/
+
 ## 👨‍💻 Author
 
 Nishita Poojary
