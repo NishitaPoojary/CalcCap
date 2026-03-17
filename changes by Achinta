@@ -1,0 +1,835 @@
+--------------index.html-------------
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CalcCap</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- INTRO SCREEN -->
+  <div id="intro-screen">
+    <div class="intro-box" id="step-who">
+      <p class="intro-tag">before we begin...</p>
+      <h2>Who are you?</h2>
+      <button class="intro-btn" onclick="pickRole('student')">🎒 Student</button>
+      <button class="intro-btn" onclick="pickRole('teacher')">📖 Teacher / Mentor</button>
+      <button class="intro-btn" onclick="pickRole('professional')">💼 Working Professional</button>
+    </div>
+
+    <div class="intro-box hidden" id="step-student">
+      <p class="intro-tag">ah, a student...</p>
+      <h2>School or Engineering?</h2>
+      <button class="intro-btn" onclick="pickStudent('school')">🏫 School</button>
+      <button class="intro-btn" onclick="pickStudent('engineering')">⚙️ Engineering</button>
+    </div>
+
+    <div class="intro-box hidden" id="step-roast">
+      <p id="roast-line"></p>
+      <button class="intro-btn enter-btn" onclick="enterCalc()">Let me in 😤</button>
+    </div>
+  </div>
+
+  <!-- CALCULATOR SCREEN -->
+  <div id="calc-screen" class="hidden">
+    <div class="container" id="calc-container">
+
+      <div class="calc-header">
+        <h1>Calc<span>Cap</span></h1>
+        <p class="subtitle">Sometimes math, sometimes cap.</p>
+      </div>
+
+      <div class="inputs-wrap">
+        <input id="num1" type="number" placeholder="First number">
+        <input id="num2" type="number" placeholder="Second number">
+      </div>
+
+      <div class="op-row">
+        <label class="op-pill">
+          <input type="radio" name="op" value="+" checked>
+          <span>+</span>
+        </label>
+        <label class="op-pill">
+          <input type="radio" name="op" value="-">
+          <span>−</span>
+        </label>
+        <label class="op-pill">
+          <input type="radio" name="op" value="*">
+          <span>×</span>
+        </label>
+        <label class="op-pill">
+          <input type="radio" name="op" value="/">
+          <span>÷</span>
+        </label>
+      </div>
+
+      <p id="roast-msg"></p>
+
+      <div id="btn-arena"></div>
+
+      <button id="dont-touch-btn" onclick="dontTouchClick()">🚫 Don't Touch This</button>
+
+      <div id="result-box">
+        <p id="result">Waiting for math...</p>
+      </div>
+
+    </div>
+  </div>
+
+  <button id="calcBtn" onclick="calculate()">⚡ Calculate</button>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
+
+
+  --------------script.js--------------
+  // ── ROAST POOL (no-repeat cycling) ──
+const roastPool = [
+  "You opened a calculator for THIS? 😐",
+  "1 + 1? Bold problem.",
+  "You're in your twenties and still double-checking this?",
+  "Whoa… are you working at NASA? 🚀",
+  "Big brain calculation detected.",
+  "Should I call a supercomputer?",
+  "Are we launching a rocket?",
+  "Try catching me first. 😏",
+  "Whoa relax… that's a serious calculation.",
+  "Even calculators get scared.",
+  "Not so fast.",
+  "I saw that cursor coming.",
+  "Do you want to break this calculator? 😤",
+  "Relax… it's just math.",
+  "Why are you moving the mouse like you're hacking NASA?",
+  "Bro calm down, it's a calculator not a racing game.",
+  "You opened a calculator just to stare at it? 👀",
+  "Bro is contemplating math.",
+  "The numbers aren't going to type themselves.",
+  "Still here? Respect the commitment.",
+  "Calculator.exe is judging you.",
+  "Are you okay? You've been staring for a while.",
+  "I literally said don't touch. 🙄",
+  "Curiosity killed the cat. Just saying.",
+  "This button does nothing. You pressed it anyway. Respect.",
+  "Stop. Please. I'm begging.",
+  "Every time you press this, a math teacher cries.",
+  "Fine. You caught me. 😒"
+];
+
+let lastRoastIndex = -1;
+
+function showRoast(msg) {
+  document.getElementById('roast-msg').textContent = msg;
+}
+
+function pickRoast(pool) {
+  // pick from given pool without repeating last shown
+  let idx;
+  do { idx = Math.floor(Math.random() * pool.length); }
+  while (pool.length > 1 && idx === lastRoastIndex);
+  lastRoastIndex = idx;
+  return pool[idx];
+}
+
+// ── INTRO ──
+
+function show(id) {
+  document.querySelectorAll('.intro-box').forEach(el => el.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function pickRole(role) {
+  if (role === 'student') { show('step-student'); return; }
+  const roasts = {
+    teacher:      "A teacher using a calculator? I won't tell your students. 🤫",
+    professional: "Office calculations again? Excel wasn't enough? 📊"
+  };
+  document.getElementById('roast-line').textContent = roasts[role];
+  show('step-roast');
+}
+
+function pickStudent(type) {
+  const roasts = {
+    school:      "School student? Don't you have a maths teacher for this? 😅",
+    engineering: "Engineering student? Don't you people carry that ₹1000 scientific calculator everywhere? 🤓"
+  };
+  document.getElementById('roast-line').textContent = roasts[type];
+  show('step-roast');
+}
+
+function enterCalc() {
+  document.getElementById('intro-screen').classList.add('hidden');
+  document.getElementById('calc-screen').classList.remove('hidden');
+  startIdleTimer();
+  initMouseRoast();
+  initBtn();
+}
+
+// ── RUNAWAY BUTTON ──
+
+let runCount  = 0;
+const maxRuns = 3;
+let mouseX = 0, mouseY = 0;
+let btnLocked = false; // true after maxRuns — button stays put
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+// Place button centred over the #btn-arena placeholder
+function anchorBtn() {
+  const btn   = document.getElementById('calcBtn');
+  const arena = document.getElementById('btn-arena');
+  const r     = arena.getBoundingClientRect();
+  btn.style.left = (r.left + r.width  / 2 - btn.offsetWidth  / 2) + 'px';
+  btn.style.top  = (r.top  + r.height / 2 - btn.offsetHeight / 2) + 'px';
+}
+
+function initBtn() {
+  const btn = document.getElementById('calcBtn');
+  btn.style.display = 'block';
+  // disable transition for the initial snap so it doesn't slide in from 0,0
+  btn.style.transition = 'none';
+  anchorBtn();
+  // re-enable transition after one frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      btn.style.transition = '';
+    });
+  });
+  btn.addEventListener('mouseenter', onBtnHover);
+}
+
+// Returns array of {left, top, right, bottom} rects for elements to avoid
+function getBlockedRects() {
+  const avoid = ['dont-touch-btn', 'num1', 'num2'];
+  return avoid.map(id => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const margin = 14;
+    return { left: r.left - margin, top: r.top - margin,
+             right: r.right + margin, bottom: r.bottom + margin };
+  }).filter(Boolean);
+}
+
+function overlapsAny(left, top, w, h, rects) {
+  const right  = left + w;
+  const bottom = top  + h;
+  return rects.some(r =>
+    left < r.right && right > r.left && top < r.bottom && bottom > r.top
+  );
+}
+
+function onBtnHover() {
+  if (btnLocked) return;
+  if (Math.random() > 0.82) return;
+
+  runCount++;
+
+  const btn = document.getElementById('calcBtn');
+  const W   = btn.offsetWidth;
+  const H   = btn.offsetHeight;
+  const pad = 12;
+
+  const hoverRoasts = [
+    "Try catching me first. 😏",
+    "Not so fast, human!",
+    "I'm faster than your cursor!",
+    "Whoa relax… that's a serious calculation.",
+    "Even calculators get scared.",
+    "I saw that cursor coming."
+  ];
+  showRoast(hoverRoasts[Math.floor(Math.random() * hoverRoasts.length)]);
+
+  const cx    = btn.getBoundingClientRect().left + W / 2;
+  const cy    = btn.getBoundingClientRect().top  + H / 2;
+  const awayA = Math.atan2(cy - mouseY, cx - mouseX);
+  const blocked = getBlockedRects();
+
+  let newLeft, newTop, attempts = 0;
+
+  // try up to 8 candidate positions, pick first that doesn't overlap blocked zones
+  do {
+    const spread = (Math.random() - 0.5) * Math.PI * 0.9;
+    const angle  = awayA + spread;
+    const dist   = 160 + Math.random() * 200;
+    newLeft = cx + Math.cos(angle) * dist - W / 2;
+    newTop  = cy + Math.sin(angle) * dist - H / 2;
+    // clamp inside viewport
+    newLeft = Math.max(pad, Math.min(window.innerWidth  - W - pad, newLeft));
+    newTop  = Math.max(pad, Math.min(window.innerHeight - H - pad, newTop));
+    attempts++;
+  } while (overlapsAny(newLeft, newTop, W, H, blocked) && attempts < 8);
+
+  btn.style.left = newLeft + 'px';
+  btn.style.top  = newTop  + 'px';
+
+  if (runCount >= maxRuns) {
+    btnLocked = true;
+    setTimeout(() => {
+      showRoast('Fine. You caught me. 😒');
+      btn.style.transition = 'none';
+      anchorBtn();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        btn.style.transition = '';
+      }));
+      setTimeout(() => showRoast(''), 1800);
+    }, 600);
+  }
+}
+
+// ── DON'T TOUCH ──
+
+let dontTouchCount = 0;
+let dontTouchTimer1 = null, dontTouchTimer2 = null;
+
+function dontTouchClick() {
+  dontTouchCount++;
+
+  // cancel any in-flight timers from a previous click
+  clearTimeout(dontTouchTimer1);
+  clearTimeout(dontTouchTimer2);
+
+  const roast = document.getElementById('roast-msg');
+  roast.textContent = ''; // step 1: clear immediately
+
+  dontTouchTimer1 = setTimeout(() => {
+    // step 2 → 3: show roast after 2s
+    if (dontTouchCount >= 3) {
+      roast.textContent = "You're in your twenties and still waiting for something to happen after pressing a button that clearly said 'Don't touch'? 😐";
+    } else {
+      const msgs = [
+        "I literally said don't touch. 🙄",
+        "Curiosity killed the cat. Just saying.",
+        "This button does nothing. You pressed it anyway. Respect.",
+        "Stop. Please. I'm begging.",
+        "Every time you press this, a math teacher cries."
+      ];
+      roast.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+    }
+
+    // step 4: clear after another 2s
+    dontTouchTimer2 = setTimeout(() => { roast.textContent = ''; }, 2000);
+  }, 2000);
+
+  resetIdle();
+}
+
+// ── MOUSE MOVEMENT ROAST ──
+
+function initMouseRoast() {
+  let moveCount = 0;
+  let windowTimer = null;
+  let roastCooldown = false;
+
+  const mouseRoasts = [
+    "Why are you moving the mouse like you're hacking NASA?",
+    "Relax… it's just a calculator.",
+    "Do you want to break this calculator? 😤",
+    "Bro calm down, it's a calculator not a racing game.",
+    "The mouse didn't do anything to you."
+  ];
+
+  document.addEventListener('mousemove', () => {
+    if (document.getElementById('calc-screen').classList.contains('hidden')) return;
+    moveCount++;
+
+    clearTimeout(windowTimer);
+    windowTimer = setTimeout(() => {
+      // only roast if moved a LOT (>80 moves in 3-4s window) and not on cooldown
+      if (moveCount > 80 && !roastCooldown) {
+        showRoast(mouseRoasts[Math.floor(Math.random() * mouseRoasts.length)]);
+        roastCooldown = true;
+        setTimeout(() => { roastCooldown = false; }, 8000);
+      }
+      moveCount = 0;
+    }, 3500);
+  });
+}
+
+// ── IDLE ROAST ──
+
+let idleTimer = null;
+
+const idleRoasts = [
+  "You opened a calculator just to stare at it? 👀",
+  "Bro is contemplating math.",
+  "The numbers aren't going to type themselves.",
+  "Still here? Respect the commitment.",
+  "Calculator.exe is judging you.",
+  "Are you okay? You've been staring for a while."
+];
+
+function startIdleTimer() {
+  clearTimeout(idleTimer);
+  const delay = 12000 + Math.random() * 8000;
+  idleTimer = setTimeout(() => {
+    showRoast(idleRoasts[Math.floor(Math.random() * idleRoasts.length)]);
+  }, delay);
+}
+
+function resetIdle() {
+  if (document.getElementById('calc-screen').classList.contains('hidden')) return;
+  startIdleTimer();
+}
+
+document.addEventListener('keydown', resetIdle);
+document.addEventListener('mousemove', resetIdle);
+
+// ── SEQUENTIAL THINKING ──
+
+function runThinkingSequence(lines, onDone) {
+  const resultEl = document.getElementById('result');
+  let i = 0;
+
+  function next() {
+    if (i >= lines.length) { onDone(); return; }
+    resultEl.innerHTML = "<span class='thinking'>" + lines[i] + "</span>";
+    i++;
+    setTimeout(next, 950);
+  }
+  next();
+}
+
+// ── CALCULATE ──
+
+function calculate() {
+  resetIdle();
+
+  const resultEl  = document.getElementById('result');
+  const resultBox = document.getElementById('result-box');
+
+  showRoast('');
+  runCount = maxRuns;
+  btnLocked = true;
+  anchorBtn();
+
+  const a  = parseFloat(document.getElementById('num1').value);
+  const b  = parseFloat(document.getElementById('num2').value);
+  const op = document.querySelector('input[name="op"]:checked').value;
+
+  // easy number roast
+  const easyRoasts = [
+    "You opened a calculator for THIS? 😐",
+    "1 + 1? Bold problem.",
+    "You're in your twenties and still double-checking this?",
+    "My grandma does this in her head.",
+    "Bro… really?"
+  ];
+
+  // large number roast
+  const largeRoasts = [
+    "Whoa… are you working at NASA? 🚀",
+    "Big brain calculation detected.",
+    "Should I call a supercomputer?",
+    "Are we launching a rocket?",
+    "Sir this is a calculator, not Wolfram Alpha."
+  ];
+
+  const isEasy  = (Math.abs(a) <= 2 && Math.abs(b) <= 2);
+  const isLarge = (Math.abs(a) > 1000 || Math.abs(b) > 1000);
+
+  if (isEasy)       showRoast(pickRoast(easyRoasts));
+  else if (isLarge) showRoast(pickRoast(largeRoasts));
+
+  const thinkLines = [
+    "Calling Einstein... 📞",
+    "Searching my brain...",
+    "Looking for my calculator...",
+    "Consulting the math gods... 🙏",
+    "Okay fine… here's the answer."
+  ];
+
+  runThinkingSequence(thinkLines, () => {
+    let result;
+    if (op === '+') result = a + b;
+    if (op === '-') result = a - b;
+    if (op === '*') result = a * b;
+    if (op === '/') result = a / b;
+
+    let finalResult, message;
+
+    if (Math.random() < 0.5) {
+      finalResult = result + Math.floor(Math.random() * 20) - 10;
+      const chaosMessages = [
+        "Trust me bro.", "Source: vibes.", "Math ain't mathing.",
+        "I made it up.", "Probably correct.", "Numbers are a suggestion.",
+        "The vibes said this.", "Don't question it."
+      ];
+      message = pickRoast(chaosMessages);
+    } else {
+      finalResult = result;
+      const correctMessages = [
+        "Okay fine... this one is correct.", "Even I can't mess this up.",
+        "Math wins this time.", "No cap. This is correct.", "Surprisingly accurate."
+      ];
+      message = pickRoast(correctMessages);
+    }
+
+    resultEl.classList.remove('thinking');
+    resultEl.innerHTML =
+      "Result: <strong>" + finalResult + "</strong>" +
+      "<br><small style='color:#64748b'>" + message + "</small>";
+
+    resultBox.classList.add('glowing');
+    resultEl.classList.remove('pop');
+    void resultEl.offsetWidth;
+    resultEl.classList.add('pop');
+
+    setTimeout(() => resultBox.classList.remove('glowing'), 2000);
+  });
+}
+
+
+--------------------style.cs------------------------
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: linear-gradient(135deg, #0d0221 0%, #0a0f2e 40%, #1a0533 100%);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.hidden { display: none !important; }
+
+/* INTRO */
+#intro-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.intro-box {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 48px 40px;
+  width: 380px;
+  text-align: center;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08);
+  animation: fadeUp 0.45s ease forwards;
+}
+
+.intro-tag {
+  font-size: 11px;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
+  margin-bottom: 14px;
+}
+
+.intro-box h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 30px;
+}
+
+.intro-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.intro-btn:hover {
+  background: rgba(99,102,241,0.15);
+  border-color: #6366f1;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.25);
+}
+
+.intro-btn:last-child { margin-bottom: 0; }
+
+.enter-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: transparent;
+  color: white;
+  font-weight: 700;
+  margin-top: 10px;
+  box-shadow: 0 4px 24px rgba(239,68,68,0.45);
+}
+
+.enter-btn:hover {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  border-color: transparent;
+  box-shadow: 0 8px 32px rgba(239,68,68,0.6);
+  transform: translateY(-2px);
+}
+
+#roast-line {
+  font-size: 15px;
+  color: #f87171;
+  font-style: italic;
+  line-height: 1.7;
+  margin-bottom: 26px;
+  min-height: 52px;
+}
+
+/* CALC SCREEN */
+#calc-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 44px 38px 36px;
+  border-radius: 28px;
+  width: 380px;
+  text-align: center;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08);
+  animation: fadeUp 0.45s ease forwards;
+  /* transform used for runaway — GPU accelerated, no jitter */
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.calc-header { margin-bottom: 28px; }
+
+h1 {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+
+h1 span {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(239,68,68,0.5));
+}
+
+.subtitle {
+  color: #475569;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* INPUTS */
+.inputs-wrap { margin-bottom: 4px; }
+
+input[type="number"] {
+  width: 100%;
+  padding: 13px 16px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.35);
+  color: white;
+  font-size: 15px;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+input[type="number"]::placeholder { color: #2d3f55; }
+
+input[type="number"]:hover {
+  background: rgba(0,0,0,0.45);
+  border-color: rgba(255,255,255,0.14);
+}
+
+input[type="number"]:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: rgba(99,102,241,0.06);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.18), 0 0 16px rgba(99,102,241,0.12);
+}
+
+/* OP PILLS */
+.op-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.op-pill input[type="radio"] { display: none; }
+
+.op-pill span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.35);
+  color: #475569;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  user-select: none;
+}
+
+.op-pill input[type="radio"]:checked + span {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 0 20px rgba(239,68,68,0.5);
+  transform: scale(1.06);
+}
+
+.op-pill:hover span {
+  border-color: #6366f1;
+  color: #818cf8;
+  background: rgba(99,102,241,0.1);
+}
+
+/* ROAST MSG */
+#roast-msg {
+  min-height: 22px;
+  font-size: 12.5px;
+  color: #f87171;
+  font-style: italic;
+  margin-bottom: 14px;
+  line-height: 1.5;
+  transition: opacity 0.3s;
+}
+
+/* BTN ARENA placeholder — keeps layout spacing */
+#btn-arena {
+  height: 52px;
+  margin-bottom: 10px;
+}
+
+/* CALCULATE BUTTON — fixed on page, JS positions it over the arena */
+button#calcBtn {
+  position: fixed;
+  display: none;          /* hidden until enterCalc() runs */
+  width: 200px;
+  height: 48px;
+  padding: 0;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  border: none;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  border-radius: 12px;
+  cursor: pointer;
+  letter-spacing: 0.6px;
+  box-shadow: 0 4px 24px rgba(239,68,68,0.4);
+  z-index: 9999;
+  transition: left 0.32s cubic-bezier(0.22,1,0.36,1),
+              top  0.32s cubic-bezier(0.22,1,0.36,1),
+              box-shadow 0.2s;
+  will-change: left, top;
+}
+
+button#calcBtn:hover  { box-shadow: 0 8px 32px rgba(239,68,68,0.65); }
+button#calcBtn:active { transform: scale(0.97); }
+
+/* DON'T TOUCH */
+button#dont-touch-btn {
+  width: 100%;
+  padding: 11px;
+  margin-bottom: 0;
+  background: transparent;
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 12px;
+  color: #2d3f55;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+
+button#dont-touch-btn:hover {
+  border-color: #f87171;
+  color: #f87171;
+  background: rgba(239,68,68,0.06);
+}
+
+/* RESULT BOX */
+#result-box {
+  margin-top: 16px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 18px 16px;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+#result-box.glowing {
+  border-color: rgba(99,102,241,0.3);
+  box-shadow: 0 0 24px rgba(99,102,241,0.12);
+}
+
+#result {
+  font-size: 16px;
+  color: #e2e8f0;
+  line-height: 1.8;
+  text-align: center;
+}
+
+#result strong {
+  font-size: 22px;
+  background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.85); opacity: 0; }
+  65%  { transform: scale(1.06); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.pop { animation: popIn 0.35s ease forwards; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.thinking { animation: pulse 0.9s ease infinite; color: #6366f1 !important; }
+
+  
